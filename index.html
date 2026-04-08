@@ -1,0 +1,246 @@
+<!-- neuralmesh/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+<title>NeuralMesh PHC Dashboard</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: #0d1117;
+    color: white;
+    padding: 20px;
+}
+
+.card {
+    background: #161b22;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 15px 0;
+}
+
+.green { color: #4caf50; }
+.orange { color: #ff9800; }
+.red { color: #f44336; }
+
+button {
+    background: #1565c0;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    margin: 5px;
+}
+
+input {
+    background: #21262d;
+    color: white;
+    border: 1px solid #30363d;
+    padding: 10px;
+    border-radius: 8px;
+    width: 200px;
+    margin: 5px;
+}
+
+select {
+    background: #21262d;
+    color: white;
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.stat {
+    font-size: 42px;
+    font-weight: bold;
+}
+
+.risk-bar {
+    height: 20px;
+    border-radius: 10px;
+    background: #30363d;
+    margin: 8px 0;
+}
+
+.risk-fill {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.5s;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>NeuralMesh - Village Health Dashboard</h1>
+<p>Real-time AI diagnostics from ASHA worker field visits</p>
+
+<div class="card">
+
+<h2>Simulate a Field Visit</h2>
+
+<input id="village"
+       placeholder="Village Name"
+       value="Pochampally"/>
+
+<select id="condition">
+    <option value="tb">TB Screening</option>
+    <option value="retinal">Retinal Scan</option>
+    <option value="anaemia">Anaemia Check</option>
+</select>
+
+<button onclick="runAnalysis()">
+Run AI Analysis
+</button>
+
+<div id="result"></div>
+
+</div>
+
+<div class="card">
+
+<h2>Village Health Overview</h2>
+
+<button onclick="loadDashboard()">
+Refresh Dashboard
+</button>
+
+<div id="dashboard"></div>
+
+</div>
+
+<script>
+
+const API = "http://localhost:5000";
+
+async function runAnalysis() {
+
+    const village =
+        document.getElementById("village").value;
+
+    const condition =
+        document.getElementById("condition").value;
+
+    document.getElementById("result").innerHTML =
+        "<p>Analysing...</p>";
+
+    const res = await fetch(API + "/analyze", {
+
+        method: "POST",
+
+        headers: {
+            "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+            village,
+            condition_type: condition,
+            image: "demo_data"
+        })
+
+    });
+
+    const data = await res.json();
+    const r = data.result;
+
+    const col =
+        r.color === "green"
+            ? "green"
+            : r.color === "orange"
+            ? "orange"
+            : "red";
+
+    document.getElementById("result").innerHTML = `
+    <div style="
+        margin-top:15px;
+        padding:15px;
+        border-left:4px solid ${r.color};
+        background:#0d1117">
+
+        <h3 class="${col}">
+        RISK: ${r.risk_level}
+        (Score: ${r.risk_score}/100)
+        </h3>
+
+        <p>${r.recommendation}</p>
+
+    </div>
+    `;
+
+    loadDashboard();
+}
+
+async function loadDashboard() {
+
+    const res =
+        await fetch(API + "/dashboard");
+
+    const d = await res.json();
+
+    if (!d.total_cases) {
+
+        document.getElementById("dashboard").innerHTML =
+            "<p>No cases yet. Run an analysis above!</p>";
+
+        return;
+    }
+
+    const alertColor =
+        d.alert === "OUTBREAK RISK"
+            ? "red"
+            : "green";
+
+    document.getElementById("dashboard").innerHTML = `
+
+    <div style="
+        display:flex;
+        gap:20px;
+        margin:15px 0">
+
+        <div style="text-align:center">
+            <div class="stat">
+                ${d.total_cases}
+            </div>
+            <div>Total Cases</div>
+        </div>
+
+        <div style="text-align:center">
+            <div class="stat orange">
+                ${d.average_risk}
+            </div>
+            <div>Avg Risk Score</div>
+        </div>
+
+        <div style="text-align:center">
+            <div class="stat red">
+                ${d.high_risk_count}
+            </div>
+            <div>High Risk</div>
+        </div>
+
+    </div>
+
+    <div style="
+        padding:10px;
+        border-radius:8px;
+        background:#${
+            alertColor === "red"
+                ? "4a1515"
+                : "1a4a1a"
+        }">
+
+        <strong class="${alertColor}">
+        SYSTEM STATUS: ${d.alert}
+        </strong>
+
+    </div>
+
+    `;
+}
+
+</script>
+
+</body>
+</html>
